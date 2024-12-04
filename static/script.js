@@ -11,6 +11,11 @@ window.addEventListener("DOMContentLoaded", async () => {
         motDuJour = data.mot.toLowerCase();
         console.log(`Mot du jour (debug) : ${motDuJour}`); // Pour débogage
 
+        // Mettre à jour le message avec le nombre d'utilisateurs ayant trouvé le mot du jour
+        const usersFoundToday = data.users_found_today;
+        document.getElementById("motMessage").textContent = 
+            `Trouvez le mot du jour ! Vous avez 6 essais. (${usersFoundToday} personnes ont déjà trouvé celui d'aujourd'hui).`;
+
         // Afficher le mot précédent et son nombre d'utilisateurs
         if (data.mot_precedent.word) {
             document.getElementById("motPrecedent").textContent = 
@@ -66,7 +71,7 @@ function afficherResultat(proposition) {
 
     const lettresRestantes = motDuJour.split("");
 
-    //Vérifier les lettres bien placées (vert)
+    // Vérifier les lettres bien placées (vert)
     const resultat = Array(proposition.length).fill("incorrect");
     for (let i = 0; i < proposition.length; i++) {
         if (proposition[i] === motDuJour[i]) {
@@ -75,7 +80,7 @@ function afficherResultat(proposition) {
         }
     }
 
-    //Vérifier les lettres mal placées (jaune)
+    // Vérifier les lettres mal placées (jaune)
     for (let i = 0; i < proposition.length; i++) {
         if (resultat[i] === "incorrect" && lettresRestantes.includes(proposition[i])) {
             resultat[i] = "misplaced";

@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_from_directory, request
 import random
 from azure.storage.blob import BlobServiceClient
 import os
@@ -10,23 +10,25 @@ app = Flask(__name__, static_folder="static")
 # Nom du conteneur et fichier Blob
 CONTAINER_NAME = "motdlecontainer"
 BLOB_NAME = "listemots.txt"
-# Configuration de connexion db
-DB_SERVER = "motdle-serverv2.database.windows.net"
-DB_NAME = "motdle-db"
+# Configuration de connexion bd
+DB_SERVER = "tcp:motdle-serverv2.database.windows.net"
+DB_NAME = "motdle-bd"
 DB_USERNAME = os.getenv("DB_USERNAME") 
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 
 
 def get_db_connection():
     conn_str = (
-        f"DRIVER={{ODBC Driver 17 for SQL Server}};"
-        f"SERVER={DB_SERVER};"
+        f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+        f"SERVER={DB_SERVER},1433;"
         f"DATABASE={DB_NAME};"
-        f"UID={DB_USERNAME};"
-        f"PWD={DB_PASSWORD}"
+        f"UID={DB_USERNAME};"  
+        f"PWD={DB_PASSWORD};"  
+        f"Encrypt=yes;"
+        f"TrustServerCertificate=no;"
+        f"Connection Timeout=30;"
     )
     return pyodbc.connect(conn_str)
-
 
 def record_past_word(word):
     """Enregistrer un mot dans la table past_words."""
@@ -75,22 +77,24 @@ def get_mot():
         date_aujourdhui = datetime.now().date()
         date_hier = (datetime.now() - timedelta(days=1)).date()
 
-        # Récupérer le mot du jour depuis la base de données
+        # Récupérer le mot du jour et le nombre d'utilisateurs ayant trouvé le mot depuis la base de données
         conn = get_db_connection()
         with conn.cursor() as cursor:
-            cursor.execute("SELECT word FROM past_words WHERE date_used = ?", (date_aujourdhui,))
+            cursor.execute("SELECT word, users_found FROM past_words WHERE date_used = ?", (date_aujourdhui,))
             row = cursor.fetchone()
             if row:
                 mot = row[0]
+                users_found_today = row[1]
             else:
                 mot = get_daily_word()  # Générer un mot s'il n'existe pas encore pour aujourd'hui
+                users_found_today = 0
 
             # Récupérer les stats du mot précédent
             cursor.execute("SELECT word, users_found FROM past_words WHERE date_used = ?", (date_hier,))
             row = cursor.fetchone()
             mot_precedent = {"word": row[0], "users_found": row[1]} if row else {"word": None, "users_found": 0}
 
-        return jsonify({"mot": mot, "mot_precedent": mot_precedent})
+        return jsonify({"mot": mot, "mot_precedent": mot_precedent, "users_found_today": users_found_today})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
