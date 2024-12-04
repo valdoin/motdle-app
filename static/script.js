@@ -1,16 +1,31 @@
 let motDuJour = ""; // Stocke le mot du jour
 let essaisRestants = 6; // Limite des essais
 
-// Charger le mot du jour automatiquement au chargement de la page
+// Charger le mot du jour et les informations du mot précédent
 window.addEventListener("DOMContentLoaded", async () => {
-    const response = await fetch("https://motdle-app.azurewebsites.net/api/mot");
-    const data = await response.json();
-    motDuJour = data.mot.toLowerCase();
-    console.log(`Mot du jour (debug) : ${motDuJour}`); // Pour débogage
+    try {
+        const response = await fetch("https://motdle-app.azurewebsites.net/api/mot");
+        const data = await response.json();
+
+        // Stocker le mot du jour
+        motDuJour = data.mot.toLowerCase();
+        console.log(`Mot du jour (debug) : ${motDuJour}`); // Pour débogage
+
+        // Afficher le mot précédent et son nombre d'utilisateurs
+        if (data.mot_precedent.word) {
+            document.getElementById("motPrecedent").textContent = 
+                `Le mot d'hier était "${data.mot_precedent.word}" (${data.mot_precedent.users_found} utilisateurs l'ont trouvé).`;
+        } else {
+            document.getElementById("motPrecedent").textContent = 
+                "Aucun mot précédent disponible.";
+        }
+    } catch (error) {
+        console.error("Erreur lors du chargement des données :", error);
+    }
 });
 
 // Vérifier une proposition lorsque l'utilisateur clique sur "Soumettre"
-document.getElementById("submitGuess").addEventListener("click", () => {
+document.getElementById("submitGuess").addEventListener("click", async () => {
     const userGuess = document.getElementById("guess").value.toLowerCase().trim();
 
     if (userGuess.length !== motDuJour.length) {
@@ -29,6 +44,16 @@ document.getElementById("submitGuess").addEventListener("click", () => {
 
     if (userGuess === motDuJour) {
         alert("Félicitations ! Vous avez trouvé le mot !");
+        // Envoyer une requête pour incrémenter le compteur d'utilisateurs ayant trouvé le mot
+        try {
+            await fetch("https://motdle-app.azurewebsites.net/api/found", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ word: motDuJour })
+            });
+        } catch (error) {
+            console.error("Erreur lors de la mise à jour des statistiques :", error);
+        }
     } else if (essaisRestants === 0) {
         alert(`Dommage ! Le mot du jour était : ${motDuJour}`);
     }
@@ -39,10 +64,9 @@ function afficherResultat(proposition) {
     const ligne = document.createElement("div");
     ligne.className = "tentative";
 
-    // Créer une copie mutable des lettres disponibles dans le mot du jour
     const lettresRestantes = motDuJour.split("");
 
-    // Première passe : Vérifier les lettres bien placées (vert)
+    //Vérifier les lettres bien placées (vert)
     const resultat = Array(proposition.length).fill("incorrect");
     for (let i = 0; i < proposition.length; i++) {
         if (proposition[i] === motDuJour[i]) {
@@ -51,7 +75,7 @@ function afficherResultat(proposition) {
         }
     }
 
-    // Deuxième passe : Vérifier les lettres mal placées (jaune)
+    //Vérifier les lettres mal placées (jaune)
     for (let i = 0; i < proposition.length; i++) {
         if (resultat[i] === "incorrect" && lettresRestantes.includes(proposition[i])) {
             resultat[i] = "misplaced";
